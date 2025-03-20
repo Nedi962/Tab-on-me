@@ -10,9 +10,10 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="26*"/>
             <ColumnDefinition Width="147*"/>
-            <ColumnDefinition Width="377*"/>
+            <ColumnDefinition Width="337*"/>
+            <ColumnDefinition Width="40*"/>
         </Grid.ColumnDefinitions>
-        <TabControl Margin="10,10,10,10" Grid.ColumnSpan="3">
+        <TabControl Margin="10,10,10,10" Grid.ColumnSpan="4">
             <TabItem Header="CPU">
                 <DataGrid x:Name="cpuDataGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserResizeRows="False" CanUserSortColumns="False" CanUserReorderColumns="False" CanUserResizeColumns="False" SelectionMode="Single" IsReadOnly="True">
                     <DataGrid.Columns>
