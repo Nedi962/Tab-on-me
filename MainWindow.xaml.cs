@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Management;
 using System.Threading.Tasks;
 using System.Windows;
@@ -74,35 +75,57 @@ namespace HeartPC
             try
             {
                 var searcher = new ManagementObjectSearcher($"select * from {query}");
+                List<ManagementObject> gpuObjects = new List<ManagementObject>();
+
                 foreach (ManagementObject obj in searcher.Get())
+                {
+                    if (componentName == "GPU")
+                    {
+                        gpuObjects.Add(obj);
+                    }
+                    else
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            dataCollection.Clear();
+                            switch (componentName)
+                            {
+                                case "CPU":
+                                    AddCpuData(obj, dataCollection);
+                                    break;
+                                case "RAM":
+                                    AddRamData(obj, dataCollection);
+                                    break;
+                                case "Motherboard":
+                                    AddMotherboardData(obj, dataCollection);
+                                    break;
+                                case "Hard Drive":
+                                    AddHardDriveData(obj, dataCollection);
+                                    break;
+                                case "System":
+                                    AddSystemData(obj, dataCollection);
+                                    break;
+                            }
+                            if (devices != null)
+                            {
+                                devices.Add(obj["Name"]?.ToString());
+                            }
+                        });
+                    }
+                }
+
+                if (componentName == "GPU")
                 {
                     Dispatcher.Invoke(() =>
                     {
                         dataCollection.Clear();
-                        switch (componentName)
-                        {
-                            case "CPU":
-                                AddCpuData(obj, dataCollection);
-                                break;
-                            case "RAM":
-                                AddRamData(obj, dataCollection);
-                                break;
-                            case "Motherboard":
-                                AddMotherboardData(obj, dataCollection);
-                                break;
-                            case "Hard Drive":
-                                AddHardDriveData(obj, dataCollection);
-                                break;
-                            case "GPU":
-                                AddGpuData(obj, dataCollection);
-                                break;
-                            case "System":
-                                AddSystemData(obj, dataCollection);
-                                break;
-                        }
+                        AddGpuData(gpuObjects, dataCollection);
                         if (devices != null)
                         {
-                            devices.Add(obj["Name"]?.ToString());
+                            foreach (var gpu in gpuObjects)
+                            {
+                                devices.Add(gpu["Name"]?.ToString());
+                            }
                         }
                     });
                 }
@@ -214,26 +237,39 @@ namespace HeartPC
             }
         }
 
-        private void AddGpuData(ManagementObject obj, ObservableCollection<SensorData> dataCollection)
+        private void AddGpuData(List<ManagementObject> allGpus, ObservableCollection<SensorData> dataCollection)
         {
-            var properties = new[] { "VideoProcessor", "AdapterCompatibility", "AdapterDACType", "AdapterRAM", "DriverVersion", "DriverDate", "InfSection", "Status" };
-            foreach (var property in properties)
+            // Find the GPU with DeviceID "VideoController1"
+            ManagementObject selectedGpu = allGpus.FirstOrDefault(gpu =>
             {
-                if (property == "AdapterRAM" && obj.Properties[property]?.Value != null)
+                string deviceId = gpu["DeviceID"]?.ToString();
+                return deviceId == "VideoController1";
+            });
+
+            // If "VideoController1" is not found, use the first available GPU
+            selectedGpu = selectedGpu ?? allGpus.FirstOrDefault();
+
+            if (selectedGpu != null)
+            {
+                var properties = new[] { "VideoProcessor", "AdapterCompatibility", "AdapterDACType", "AdapterRAM", "DriverVersion", "DriverDate", "InfSection", "Status" };
+                foreach (var property in properties)
                 {
-                    if (ulong.TryParse(obj[property]?.ToString(), out ulong ramInBytes))
+                    if (property == "AdapterRAM" && selectedGpu.Properties[property]?.Value != null)
                     {
-                        double ramInGB = ramInBytes / (1024 * 1024 * 1024);
-                        dataCollection.Add(new SensorData { SensorName = property, SensorValue = $"{ramInGB:F2} GB" });
+                        if (ulong.TryParse(selectedGpu[property]?.ToString(), out ulong ramInBytes))
+                        {
+                            double ramInGB = ramInBytes / (1024.0 * 1024.0 * 1024.0); // Ensure division is in double
+                            dataCollection.Add(new SensorData { SensorName = property, SensorValue = $"{ramInGB:F2} GB" });
+                        }
                     }
-                }
-                else if (obj.Properties[property]?.Value != null)
-                {
-                    dataCollection.Add(new SensorData { SensorName = property, SensorValue = obj[property]?.ToString() });
-                }
-                else
-                {
-                    LogError($"Property {property} not found in GPU data.");
+                    else if (selectedGpu.Properties[property]?.Value != null)
+                    {
+                        dataCollection.Add(new SensorData { SensorName = property, SensorValue = selectedGpu[property]?.ToString() });
+                    }
+                    else
+                    {
+                        LogError($"Property {property} not found in GPU data.");
+                    }
                 }
             }
         }
@@ -269,7 +305,7 @@ namespace HeartPC
             File.WriteAllText(exportPath, componentsInfo);
             MessageBox.Show($"Components data exported to {exportPath}", "Export Successful", MessageBoxButton.OK, MessageBoxImage.Information);
 
-            // Open the exported components data file
+            // Открытие файла данных экспортируемых компонентов
             Process.Start(new ProcessStartInfo
             {
                 FileName = exportPath,
