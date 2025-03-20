@@ -3,15 +3,11 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Management;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using HidSharp;
-using SharpDX.Direct3D11;
-using SharpDX.Mathematics.Interop;
 
 namespace HeartPC
 {
